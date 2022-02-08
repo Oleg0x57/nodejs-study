@@ -1,0 +1,72 @@
+version: '3'
+
+services:
+  frontend:
+    build: ./frontend
+    container_name: nodejs-todo-frontend
+    command: npm run dev
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+      - API_URL=http://auth:3001
+    volumes:
+      - ./frontend:/usr/src/app/src
+    networks:
+      - nodejs-todo-network
+
+  api:
+    build: ./api
+    container_name: nodejs-todo-api
+    command: npm run dev
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - DB_NAME=node-todo
+      - DB_USER=root
+      - DB_PASS=12345678
+      - DB_HOST=api_db
+      - DB_CONN=postgres://pguser:pguser@api_db:5432/pg_todo
+    depends_on:
+      - api_db
+    volumes:
+      - ./api:/usr/src/app/src
+    networks:
+      - nodejs-todo-network
+
+  api_db:
+    image: postgres:12.6
+    container_name: nodejs-todo-api-db
+    volumes:
+      - postgresqldb_api:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: pguser
+      POSTGRES_PASSWORD: pguser
+      POSTGRES_DB: pg_todo
+    networks:
+      - nodejs-todo-network
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: nodejs-todo-nginx
+    ports: 
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/nginx.conf
+    depends_on:
+      - frontend
+      - api
+    networks:
+      - nodejs-todo-network
+
+volumes:
+  postgresqldb_api:
+
+networks:
+  nodejs-todo-network:
+    driver: bridge
